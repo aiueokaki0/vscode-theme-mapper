@@ -5,7 +5,10 @@ import * as vscode from "vscode";
 import {
   type AssignmentDetails,
   type ExtensionConfig,
+  type InstalledTheme,
+  type UiTheme,
   normalizeConfig,
+  resolveCandidates,
   resolveNameFromSources,
   selectTheme,
   isPathAllowed
@@ -116,7 +119,7 @@ async function applyMappedTheme(
     return;
   }
 
-  const updated = await updateThemeSetting(targetFolder, assignment.theme);
+  const updated = await updateThemeSetting(targetFolder, assignment.theme, force);
   if (!updated) {
     log(`Skipped apply for ${workspacePath} because the multi-root workspace is not saved yet.`);
     return;
@@ -154,7 +157,8 @@ async function resolveAssignment(
     return undefined;
   }
 
-  const assignment = selectTheme(resolvedName.value, config.candidateThemes, config.hashSalt);
+  const candidates = resolveCandidates(config.candidateMode, config.candidateThemes, getInstalledThemes());
+  const assignment = selectTheme(resolvedName.value, candidates, config.hashSalt);
   if (!assignment) {
     return undefined;
   }
@@ -165,10 +169,38 @@ async function resolveAssignment(
   };
 }
 
+function getInstalledThemes(): InstalledTheme[] {
+  const themes: InstalledTheme[] = [];
+
+  for (const extension of vscode.extensions.all) {
+    const contributed = extension.packageJSON?.contributes?.themes;
+    if (!Array.isArray(contributed)) {
+      continue;
+    }
+
+    for (const entry of contributed) {
+      const label = typeof entry?.label === "string" ? entry.label.trim() : "";
+      const uiTheme = entry?.uiTheme;
+      if (label.length === 0 || !isUiTheme(uiTheme)) {
+        continue;
+      }
+
+      themes.push({ label, uiTheme });
+    }
+  }
+
+  return themes;
+}
+
+function isUiTheme(value: unknown): value is UiTheme {
+  return value === "vs" || value === "vs-dark" || value === "hc-black" || value === "hc-light";
+}
+
 function loadConfig(): ExtensionConfig {
   const config = vscode.workspace.getConfiguration();
   return normalizeConfig({
     enabled: config.get<boolean>("autoAssign.enabled"),
+    candidateMode: config.get<ExtensionConfig["candidateMode"]>("autoAssign.candidateMode"),
     candidateThemes: config.get<string[]>("autoAssign.candidateThemes"),
     hashSalt: config.get<string>("autoAssign.hashSalt"),
     onlyWhenUnset: config.get<boolean>("autoAssign.onlyWhenUnset"),

@@ -45,16 +45,28 @@
           "default": true,
           "description": "Enable automatic theme assignment for the active workspace."
         },
+        "autoAssign.candidateMode": {
+          "type": "string",
+          "enum": [
+            "all",
+            "light",
+            "dark"
+          ],
+          "enumDescriptions": [
+            "Consider all installed color themes.",
+            "Consider installed light themes only.",
+            "Consider installed dark themes only."
+          ],
+          "default": "all",
+          "description": "Kind filter applied to installed themes before autoAssign.candidateThemes regex matching."
+        },
         "autoAssign.candidateThemes": {
           "type": "array",
-          "default": [
-            "Light Modern",
-            "Dark Modern"
-          ],
+          "default": [],
           "items": {
             "type": "string"
           },
-          "description": "Installed theme names to choose from."
+          "description": "Regular expression patterns further filtering the kind-filtered installed theme labels. Leave empty to keep every theme selected by autoAssign.candidateMode. Each entry is compiled as a JavaScript RegExp; use ^ and $ to anchor for exact match."
         },
         "autoAssign.hashSalt": {
           "type": "string",

@@ -1,15 +1,20 @@
 import * as path from "node:path";
 
-export const DEFAULT_CANDIDATE_THEMES = [
-  "Light Modern",
-  "Dark Modern"
-] as const;
+export const DEFAULT_CANDIDATE_THEMES = [] as const;
 
 export type NameSource = "gitRootName" | "pathname";
 export type PathnameMode = "folder" | "directory";
+export type CandidateMode = "all" | "light" | "dark";
+export type UiTheme = "vs" | "vs-dark" | "hc-black" | "hc-light";
+
+export interface InstalledTheme {
+  label: string;
+  uiTheme: UiTheme;
+}
 
 export interface ExtensionConfig {
   enabled: boolean;
+  candidateMode: CandidateMode;
   candidateThemes: string[];
   hashSalt: string;
   onlyWhenUnset: boolean;
@@ -39,6 +44,7 @@ export function normalizeConfig(input: Partial<ExtensionConfig>): ExtensionConfi
 
   return {
     enabled: input.enabled ?? true,
+    candidateMode: isCandidateMode(input.candidateMode) ? input.candidateMode : "all",
     candidateThemes: candidateThemes ?? [...DEFAULT_CANDIDATE_THEMES],
     hashSalt: input.hashSalt ?? "",
     onlyWhenUnset: input.onlyWhenUnset ?? true,
@@ -47,6 +53,49 @@ export function normalizeConfig(input: Partial<ExtensionConfig>): ExtensionConfi
     includePaths: sanitizeStringArray(input.includePaths, []),
     excludePaths: sanitizeStringArray(input.excludePaths, [])
   };
+}
+
+export function resolveCandidates(
+  mode: CandidateMode,
+  patternSources: string[],
+  installedThemes: InstalledTheme[]
+): string[] {
+  const kindFiltered = installedThemes.filter((theme) => matchesKind(mode, theme.uiTheme));
+  const patterns = compilePatterns(patternSources);
+
+  if (patterns.length === 0) {
+    return kindFiltered.map((theme) => theme.label);
+  }
+
+  return kindFiltered
+    .filter((theme) => patterns.some((pattern) => pattern.test(theme.label)))
+    .map((theme) => theme.label);
+}
+
+function matchesKind(mode: CandidateMode, uiTheme: UiTheme): boolean {
+  if (mode === "light") {
+    return uiTheme === "vs";
+  }
+
+  if (mode === "dark") {
+    return uiTheme === "vs-dark";
+  }
+
+  return true;
+}
+
+function compilePatterns(sources: string[]): RegExp[] {
+  const patterns: RegExp[] = [];
+
+  for (const source of sources) {
+    try {
+      patterns.push(new RegExp(source));
+    } catch {
+      // Skip invalid patterns silently — the caller's sanitization already dropped empties.
+    }
+  }
+
+  return patterns;
 }
 
 export function resolveNameFromSources(
@@ -145,6 +194,10 @@ function sanitizeOptionalStringArray(value: string[] | undefined): string[] | un
 
 function isNameSource(value: string): value is NameSource {
   return value === "gitRootName" || value === "pathname";
+}
+
+function isCandidateMode(value: unknown): value is CandidateMode {
+  return value === "all" || value === "light" || value === "dark";
 }
 
 function normalizeFsPath(value: string): string {
