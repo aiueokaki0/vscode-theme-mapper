@@ -5,6 +5,14 @@
   "version": "0.1.0",
   "publisher": "aiueokaki0",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aiueokaki0/vscode-theme-mapper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aiueokaki0/vscode-theme-mapper/issues"
+  },
+  "homepage": "https://github.com/aiueokaki0/vscode-theme-mapper#readme",
   "packageManager": "bun@1.3.13",
   "engines": {
     "vscode": "^1.116.0"
