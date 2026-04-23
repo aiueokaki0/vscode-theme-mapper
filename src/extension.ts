@@ -55,6 +55,7 @@ export function activate(context: vscode.ExtensionContext): void {
       await applyMappedTheme(context, reason, force);
     } catch (error) {
       console.error("[theme-mapper] Failed to apply theme.", error);
+      log(`Failed to apply theme: ${error instanceof Error ? `${error.message}\n${error.stack ?? ""}` : String(error)}`);
     } finally {
       isApplyingTheme = false;
     }
@@ -95,21 +96,27 @@ async function applyMappedTheme(
 ): Promise<void> {
   const config = loadConfig();
   if (!config.enabled) {
+    log(`Skipped apply (${reason}): autoAssign.enabled is false.`);
     return;
   }
 
   const targetFolder = getPrimaryWorkspaceFolder();
   if (!targetFolder) {
+    log(`Skipped apply (${reason}): no workspace folder is open.`);
     return;
   }
 
   const workspacePath = targetFolder.uri.fsPath;
   if (!isPathAllowed(workspacePath, config.includePaths, config.excludePaths)) {
+    log(`Skipped apply (${reason}): ${workspacePath} is not allowed by include/exclude paths.`);
     return;
   }
 
   const assignment = await resolveAssignment(config, workspacePath);
   if (!assignment) {
+    log(
+      `Skipped apply (${reason}): no theme assignment resolved for ${workspacePath} (candidateMode=${config.candidateMode}, candidateThemes=${JSON.stringify(config.candidateThemes)}).`
+    );
     return;
   }
 
@@ -253,7 +260,8 @@ function shouldSkipForExplicitTheme(
 
 async function updateThemeSetting(
   targetFolder: vscode.WorkspaceFolder,
-  themeName: string
+  themeName: string,
+  force: boolean
 ): Promise<boolean> {
   const configuration = vscode.workspace.getConfiguration("workbench", targetFolder.uri);
   const target = getThemeConfigurationTarget();
@@ -262,6 +270,11 @@ async function updateThemeSetting(
   }
 
   await configuration.update("colorTheme", themeName, target);
+
+  if (force) {
+    await configuration.update("colorTheme", themeName, vscode.ConfigurationTarget.Global);
+  }
+
   return true;
 }
 
@@ -271,9 +284,7 @@ function getThemeConfigurationTarget(): vscode.ConfigurationTarget | undefined {
     return undefined;
   }
 
-  return vscode.workspace.workspaceFile
-    ? vscode.ConfigurationTarget.Workspace
-    : vscode.ConfigurationTarget.WorkspaceFolder;
+  return vscode.ConfigurationTarget.Workspace;
 }
 
 async function tryResolveGitRoot(workspacePath: string): Promise<string | undefined> {
