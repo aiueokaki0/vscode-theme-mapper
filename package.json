@@ -1,0 +1,117 @@
+{
+  "name": "vscode-theme-mapper",
+  "displayName": "Theme Mapper",
+  "description": "Automatically assign a VS Code theme based on the current workspace.",
+  "version": "0.1.0",
+  "publisher": "aiueokaki0",
+  "license": "MIT",
+  "packageManager": "bun@1.3.13",
+  "engines": {
+    "vscode": "^1.116.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:themeMapper.reapplyTheme",
+    "onCommand:themeMapper.forceReapplyTheme"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "themeMapper.reapplyTheme",
+        "title": "Theme Mapper: Reapply Theme"
+      },
+      {
+        "command": "themeMapper.forceReapplyTheme",
+        "title": "Theme Mapper: Force Reapply Theme"
+      }
+    ],
+    "configuration": {
+      "title": "Theme Mapper",
+      "properties": {
+        "autoAssign.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic theme assignment for the active workspace."
+        },
+        "autoAssign.candidateThemes": {
+          "type": "array",
+          "default": [
+            "Default Light Modern",
+            "Default Dark Modern",
+            "Default High Contrast Light",
+            "Default High Contrast"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Installed theme names to choose from."
+        },
+        "autoAssign.hashSalt": {
+          "type": "string",
+          "default": "",
+          "description": "Optional salt used to reshuffle deterministic theme assignment."
+        },
+        "autoAssign.onlyWhenUnset": {
+          "type": "boolean",
+          "default": true,
+          "description": "Do not overwrite explicit theme settings unless the current user theme was previously applied by Theme Mapper."
+        },
+        "autoAssign.nameSource": {
+          "type": "array",
+          "default": [
+            "gitRootName",
+            "pathname"
+          ],
+          "items": {
+            "type": "string",
+            "enum": [
+              "gitRootName",
+              "pathname"
+            ]
+          },
+          "description": "Priority-ordered sources used to resolve the project name."
+        },
+        "autoAssign.pathname": {
+          "type": "string",
+          "default": "folder",
+          "enum": [
+            "folder",
+            "directory"
+          ],
+          "description": "How pathname is resolved when pathname is included in autoAssign.nameSource."
+        },
+        "autoAssign.includePaths": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Only apply automatic assignment when the target workspace path is under one of these paths."
+        },
+        "autoAssign.excludePaths": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Skip automatic assignment when the target workspace path is under one of these paths."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "bun run compile && node --test out/test/**/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/vscode": "^1.116.0",
+    "@vscode/test-electron": "^2.5.2",
+    "typescript": "^6.0.3"
+  }
+}
