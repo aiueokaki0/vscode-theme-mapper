@@ -71,6 +71,10 @@ export function activate(context: vscode.ExtensionContext): void {
       if (event.affectsConfiguration("autoAssign")) {
         await applyTheme("configurationChanged", false);
       }
+
+      if (!isApplyingTheme && event.affectsConfiguration("workbench.colorTheme")) {
+        await clearManagedThemeState(context);
+      }
     })
   );
 
@@ -254,4 +258,8 @@ async function tryResolveGitRoot(workspacePath: string): Promise<string | undefi
 
 function log(message: string): void {
   outputChannel.appendLine(`[${new Date().toISOString()}] ${message}`);
+}
+
+async function clearManagedThemeState(context: vscode.ExtensionContext): Promise<void> {
+  await context.workspaceState.update(MANAGED_THEME_STATE_KEY, undefined);
 }
