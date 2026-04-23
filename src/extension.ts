@@ -14,6 +14,7 @@ import {
 const execFileAsync = promisify(execFile);
 const MANAGED_THEME_STATE_KEY = "themeMapper.managedTheme";
 const LAST_APPLIED_STATE_KEY = "themeMapper.lastApplied";
+const outputChannel = vscode.window.createOutputChannel("Theme Mapper");
 
 interface ManagedThemeState {
   theme: string;
@@ -39,6 +40,8 @@ interface ThemeInspection {
 let isApplyingTheme = false;
 
 export function activate(context: vscode.ExtensionContext): void {
+  context.subscriptions.push(outputChannel);
+
   const applyTheme = async (reason: ApplyReason, force = false): Promise<void> => {
     if (isApplyingTheme) {
       return;
@@ -65,10 +68,7 @@ export function activate(context: vscode.ExtensionContext): void {
       await applyTheme("workspaceFoldersChanged", false);
     }),
     vscode.workspace.onDidChangeConfiguration(async (event) => {
-      if (
-        event.affectsConfiguration("autoAssign") ||
-        event.affectsConfiguration("workbench.colorTheme")
-      ) {
+      if (event.affectsConfiguration("autoAssign")) {
         await applyTheme("configurationChanged", false);
       }
     })
@@ -108,14 +108,18 @@ async function applyMappedTheme(
 
   const currentTheme = getThemeInspection();
   if (!force && shouldSkipForExplicitTheme(context, currentTheme, workspacePath, config.onlyWhenUnset)) {
+    log(`Skipped apply for ${workspacePath} because the workspace theme is explicitly set.`);
     return;
   }
 
-  await updateThemeSetting(assignment.theme);
-  await context.globalState.update(MANAGED_THEME_STATE_KEY, {
+  await updateThemeSetting(targetFolder, assignment.theme);
+  log(
+    `Applied "${assignment.theme}" for ${workspacePath} using ${assignment.source}="${assignment.name}" (${reason}).`
+  );
+  await context.workspaceState.update(MANAGED_THEME_STATE_KEY, {
     theme: assignment.theme
   } satisfies ManagedThemeState);
-  await context.globalState.update(LAST_APPLIED_STATE_KEY, {
+  await context.workspaceState.update(LAST_APPLIED_STATE_KEY, {
     resolvedName: assignment.name,
     resolvedSource: assignment.source,
     theme: assignment.theme,
@@ -123,6 +127,7 @@ async function applyMappedTheme(
   } satisfies LastAppliedState);
 
   if (reason === "command" || reason === "forcedCommand") {
+    outputChannel.show(true);
     void vscode.window.setStatusBarMessage(
       `Theme Mapper applied "${assignment.theme}" from ${assignment.source}`,
       3000
@@ -181,7 +186,7 @@ function getThemeInspection(): ThemeInspection | undefined {
 function shouldSkipForExplicitTheme(
   context: vscode.ExtensionContext,
   inspection: ThemeInspection | undefined,
-  workspacePath: string,
+  _workspacePath: string,
   onlyWhenUnset: boolean
 ): boolean {
   if (!onlyWhenUnset) {
@@ -192,28 +197,32 @@ function shouldSkipForExplicitTheme(
     return false;
   }
 
-  if (inspection.workspaceFolderValue !== undefined || inspection.workspaceValue !== undefined) {
-    return true;
-  }
-
-  if (inspection.globalValue === undefined) {
+  const configuredTheme = inspection.workspaceFolderValue ?? inspection.workspaceValue;
+  if (configuredTheme === undefined) {
     return false;
   }
 
-  const managed = context.globalState.get<ManagedThemeState>(MANAGED_THEME_STATE_KEY);
+  const managed = context.workspaceState.get<ManagedThemeState>(MANAGED_THEME_STATE_KEY);
   if (!managed) {
     return true;
   }
 
-  return !(
-    managed.theme === inspection.globalValue
-  );
+  return managed.theme !== configuredTheme;
 }
 
-async function updateThemeSetting(themeName: string): Promise<void> {
-  await vscode.workspace
-    .getConfiguration("workbench")
-    .update("colorTheme", themeName, vscode.ConfigurationTarget.Global);
+async function updateThemeSetting(
+  targetFolder: vscode.WorkspaceFolder,
+  themeName: string
+): Promise<void> {
+  const configuration = vscode.workspace.getConfiguration("workbench", targetFolder.uri);
+  const target = getThemeConfigurationTarget();
+  await configuration.update("colorTheme", themeName, target);
+}
+
+function getThemeConfigurationTarget(): vscode.ConfigurationTarget {
+  return vscode.workspace.workspaceFile
+    ? vscode.ConfigurationTarget.Workspace
+    : vscode.ConfigurationTarget.WorkspaceFolder;
 }
 
 async function tryResolveGitRoot(workspacePath: string): Promise<string | undefined> {
@@ -226,4 +235,8 @@ async function tryResolveGitRoot(workspacePath: string): Promise<string | undefi
   } catch {
     return undefined;
   }
+}
+
+function log(message: string): void {
+  outputChannel.appendLine(`[${new Date().toISOString()}] ${message}`);
 }

@@ -1,10 +1,8 @@
 import * as path from "node:path";
 
 export const DEFAULT_CANDIDATE_THEMES = [
-  "Default Light Modern",
-  "Default Dark Modern",
-  "Default High Contrast Light",
-  "Default High Contrast"
+  "Light Modern",
+  "Dark Modern"
 ] as const;
 
 export type NameSource = "gitRootName" | "pathname";

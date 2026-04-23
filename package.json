@@ -40,10 +40,8 @@
         "autoAssign.candidateThemes": {
           "type": "array",
           "default": [
-            "Default Light Modern",
-            "Default Dark Modern",
-            "Default High Contrast Light",
-            "Default High Contrast"
+            "Light Modern",
+            "Dark Modern"
           ],
           "items": {
             "type": "string"
@@ -58,7 +56,7 @@
         "autoAssign.onlyWhenUnset": {
           "type": "boolean",
           "default": true,
-          "description": "Do not overwrite explicit theme settings unless the current user theme was previously applied by Theme Mapper."
+          "description": "Do not overwrite explicit workspace theme settings unless the current workspace theme was previously applied by Theme Mapper."
         },
         "autoAssign.nameSource": {
           "type": "array",
