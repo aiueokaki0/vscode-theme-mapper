@@ -112,7 +112,12 @@ async function applyMappedTheme(
     return;
   }
 
-  await updateThemeSetting(targetFolder, assignment.theme);
+  const updated = await updateThemeSetting(targetFolder, assignment.theme);
+  if (!updated) {
+    log(`Skipped apply for ${workspacePath} because the multi-root workspace is not saved yet.`);
+    return;
+  }
+
   log(
     `Applied "${assignment.theme}" for ${workspacePath} using ${assignment.source}="${assignment.name}" (${reason}).`
   );
@@ -213,13 +218,23 @@ function shouldSkipForExplicitTheme(
 async function updateThemeSetting(
   targetFolder: vscode.WorkspaceFolder,
   themeName: string
-): Promise<void> {
+): Promise<boolean> {
   const configuration = vscode.workspace.getConfiguration("workbench", targetFolder.uri);
   const target = getThemeConfigurationTarget();
+  if (!target) {
+    return false;
+  }
+
   await configuration.update("colorTheme", themeName, target);
+  return true;
 }
 
-function getThemeConfigurationTarget(): vscode.ConfigurationTarget {
+function getThemeConfigurationTarget(): vscode.ConfigurationTarget | undefined {
+  const folders = vscode.workspace.workspaceFolders;
+  if (folders && folders.length > 1 && !vscode.workspace.workspaceFile) {
+    return undefined;
+  }
+
   return vscode.workspace.workspaceFile
     ? vscode.ConfigurationTarget.Workspace
     : vscode.ConfigurationTarget.WorkspaceFolder;

@@ -35,10 +35,11 @@ export function normalizeConfig(input: Partial<ExtensionConfig>): ExtensionConfi
   const nameSource = Array.isArray(input.nameSource)
     ? input.nameSource.filter(isNameSource)
     : [];
+  const candidateThemes = sanitizeOptionalStringArray(input.candidateThemes);
 
   return {
     enabled: input.enabled ?? true,
-    candidateThemes: sanitizeStringArray(input.candidateThemes, [...DEFAULT_CANDIDATE_THEMES]),
+    candidateThemes: candidateThemes ?? [...DEFAULT_CANDIDATE_THEMES],
     hashSalt: input.hashSalt ?? "",
     onlyWhenUnset: input.onlyWhenUnset ?? true,
     nameSource: nameSource.length > 0 ? nameSource : ["gitRootName", "pathname"],
@@ -126,12 +127,20 @@ function sanitizeStringArray(value: string[] | undefined, fallback: string[]): s
     return [...fallback];
   }
 
-  const next = value
+  const next = sanitizeOptionalStringArray(value) ?? [];
+
+  return next.length > 0 || fallback.length === 0 ? next : [...fallback];
+}
+
+function sanitizeOptionalStringArray(value: string[] | undefined): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
-
-  return next.length > 0 || fallback.length === 0 ? next : [...fallback];
 }
 
 function isNameSource(value: string): value is NameSource {

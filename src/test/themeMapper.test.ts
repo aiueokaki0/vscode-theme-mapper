@@ -19,6 +19,14 @@ test("normalizeConfig falls back to defaults", () => {
   assert.equal(config.pathname, "folder");
 });
 
+test("normalizeConfig preserves an explicitly empty candidate list", () => {
+  const config = normalizeConfig({
+    candidateThemes: []
+  });
+
+  assert.deepEqual(config.candidateThemes, []);
+});
+
 test("git root name is preferred when available", () => {
   const resolved = resolveNameFromSources(
     ["gitRootName", "pathname"],
