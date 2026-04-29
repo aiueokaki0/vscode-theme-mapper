@@ -1,4 +1,6 @@
 import * as path from "node:path";
+import * as fs from "node:fs";
+import * as os from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import * as vscode from "vscode";
@@ -177,26 +179,81 @@ async function resolveAssignment(
 }
 
 function getInstalledThemes(): InstalledTheme[] {
-  const themes: InstalledTheme[] = [];
+  const themes = new Map<string, InstalledTheme>();
+  const extensionRoots = new Set<string>();
 
   for (const extension of vscode.extensions.all) {
-    const contributed = extension.packageJSON?.contributes?.themes;
-    if (!Array.isArray(contributed)) {
-      continue;
-    }
-
-    for (const entry of contributed) {
-      const label = typeof entry?.label === "string" ? entry.label.trim() : "";
-      const uiTheme = entry?.uiTheme;
-      if (label.length === 0 || !isUiTheme(uiTheme)) {
-        continue;
-      }
-
-      themes.push({ label, uiTheme });
+    addThemesFromPackageJSON(themes, extension.packageJSON);
+    if (extension.extensionPath) {
+      extensionRoots.add(path.dirname(extension.extensionPath));
     }
   }
 
-  return themes;
+  for (const root of getExtensionRootCandidates(extensionRoots)) {
+    addThemesFromExtensionRoot(themes, root);
+  }
+
+  return [...themes.values()];
+}
+
+function getExtensionRootCandidates(extensionRoots: Set<string>): string[] {
+  const home = os.homedir();
+  const roots = new Set(extensionRoots);
+
+  if (home) {
+    roots.add(path.join(home, ".vscode", "extensions"));
+    roots.add(path.join(home, ".vscode-server", "extensions"));
+    roots.add(path.join(home, ".vscode-server-insiders", "extensions"));
+  }
+
+  return [...roots];
+}
+
+function addThemesFromExtensionRoot(themes: Map<string, InstalledTheme>, root: string): void {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const packagePath = path.join(root, entry.name, "package.json");
+    addThemesFromPackageJSON(themes, readPackageJSON(packagePath));
+  }
+}
+
+function readPackageJSON(packagePath: string): unknown {
+  try {
+    return JSON.parse(fs.readFileSync(packagePath, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+function addThemesFromPackageJSON(themes: Map<string, InstalledTheme>, packageJSON: unknown): void {
+  if (!packageJSON || typeof packageJSON !== "object") {
+    return;
+  }
+
+  const contributed = (packageJSON as { contributes?: { themes?: unknown } }).contributes?.themes;
+  if (!Array.isArray(contributed)) {
+    return;
+  }
+
+  for (const entry of contributed) {
+    const label = typeof entry?.label === "string" ? entry.label.trim() : "";
+    const uiTheme = entry?.uiTheme;
+    if (label.length === 0 || !isUiTheme(uiTheme)) {
+      continue;
+    }
+
+    themes.set(`${uiTheme}\0${label}`, { label, uiTheme });
+  }
 }
 
 function isUiTheme(value: unknown): value is UiTheme {
